@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (Schema::hasTable('transactions') && !Schema::hasColumn('transactions','dir','status','transaction_type','invoice_amount','tds_rate','netRec','usable','gstLocked','cashfit','bankfit','tds_on_gst_rate','tds_on_gst','transferPair','tds','gst','base','created_by')) {
+        if (Schema::hasTable('transactions') && !Schema::hasColumn('transactions','dir','status','name','transaction_type','invoice_amount','tds_rate','netRec','usable','gstLocked','cashfit','bankfit','tds_on_gst_rate','tds_on_gst','transferPair','tds','gst','base','created_by')) {
             Schema::table('transactions', function (Blueprint $table) {
                 $table->string('dir', 50)->nullable()->after('date'); 
                 $table->string('status', 20)->nullable()->after('description');
