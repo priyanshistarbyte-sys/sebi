@@ -1,0 +1,20 @@
+php artisan config:clear
+php artisan view:clear
+php artisan route:clear
+php artisan optimize
+
+npm ci
+npm run build
+
+php artisan storage:link
+
+
+mkdir -p public/tinymce
+cp -r node_modules/tinymce/skins public/tinymce/
+
+php artisan vendor:publish --provider="Mews\Purifier\PurifierServiceProvider"
+
+-----------------For server-----------------
+composer install --no-dev --optimize-autoloader
+php artisan config:clear && php artisan route:clear && php artisan view:clear
+php artisan config:cache && php artisan route:cache
