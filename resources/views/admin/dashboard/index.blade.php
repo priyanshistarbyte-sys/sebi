@@ -34,7 +34,7 @@
             </div>
         </div>
 
-        <div class="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 md:col-span-1 transition-colors duration-200">
+        <div class="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 md:col-span-1 transition-colors duration-200" x-data="{ open:false, html:'', loading:false }">
             <h3 class="font-semibold mb-2 text-gray-900 dark:text-gray-100">INCOME</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -45,7 +45,16 @@
                         @forelse($incomeByCat as $row)
                             <tr class="odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800">
                                 <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">{{ $row['name'] }}</td>
-                                <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">{{ format_money($row['total'], $currency) }}</td>
+                                <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">
+                                    @if($row['id'])
+                                        <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200"
+                                            @click="loading=true; open=true; html=''; fetch('{{ route('admin.dashboard.category.transactions', $row['id']) }}?month=1', {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.text()).then(t=>{ html=t; loading=false; }).catch(()=>{ html='<div class=\'p-4\'>Failed to load.</div>'; loading=false; });">
+                                            {{ format_money($row['total'], $currency) }}
+                                        </button>
+                                    @else
+                                        {{ format_money($row['total'], $currency) }}
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr><td class="p-2 border border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400 odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800" colspan="2">No data</td></tr>
@@ -53,9 +62,21 @@
                     </tbody>
                 </table>
             </div>
+            <div x-show="open" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4" @keydown.escape.window="open=false" @click.self="open=false">
+                <div class="w-full max-w-3xl rounded-xl bg-white dark:bg-gray-900 shadow p-0 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Income Transactions</h2>
+                        <button class="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900" @click="open=false">&times;</button>
+                    </div>
+                    <div class="max-h-[70vh] overflow-auto">
+                        <template x-if="loading"><div class="p-6 text-sm text-gray-600 dark:text-gray-400">Loading…</div></template>
+                        <div x-html="html"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 md:col-span-1 transition-colors duration-200">
+        <div class="rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 md:col-span-1 transition-colors duration-200" x-data="{ open:false, html:'', loading:false }">
             <h3 class="font-semibold mb-2 text-gray-900 dark:text-gray-100">EXPENSE</h3>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -66,13 +87,34 @@
                         @forelse($expenseByCat as $row)
                             <tr class="odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800">
                                 <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100">{{ $row['name'] }}</td>
-                                <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">{{ format_money($row['total'], $currency) }}</td>
+                                <td class="p-2 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 text-right">
+                                    @if($row['id'])
+                                        <button class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors duration-200"
+                                            @click="loading=true; open=true; html=''; fetch('{{ route('admin.dashboard.category.transactions', $row['id']) }}?month=1', {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.text()).then(t=>{ html=t; loading=false; }).catch(()=>{ html='<div class=\'p-4\'>Failed to load.</div>'; loading=false; });">
+                                            {{ format_money($row['total'], $currency) }}
+                                        </button>
+                                    @else
+                                        {{ format_money($row['total'], $currency) }}
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr><td class="p-2 border border-gray-200 dark:border-gray-700 text-center text-gray-500 dark:text-gray-400 odd:bg-white dark:odd:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800" colspan="2">No data</td></tr>
                         @endforelse
                     </tbody>
                 </table>
+            </div>
+            <div x-show="open" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4" @keydown.escape.window="open=false" @click.self="open=false">
+                <div class="w-full max-w-3xl rounded-xl bg-white dark:bg-gray-900 shadow p-0 overflow-hidden">
+                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Expense Transactions</h2>
+                        <button class="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900" @click="open=false">&times;</button>
+                    </div>
+                    <div class="max-h-[70vh] overflow-auto">
+                        <template x-if="loading"><div class="p-6 text-sm text-gray-600 dark:text-gray-400">Loading…</div></template>
+                        <div x-html="html"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -570,7 +612,7 @@
     </div>
 
     {{-- Dashboard: GST/TDS Widget --}}
-    <div x-data="{ open: false }" class="mt-6 rounded-xl border bg-white dark:border-gray-700 p-4 bg-white dark:bg-gray-900 transition-colors duration-200">
+    <div x-data="{ open: false, gstModal: false, gstHtml: '', gstLoading: false, tdsModal: false, tdsHtml: '', tdsLoading: false }" class="mt-6 rounded-xl border bg-white dark:border-gray-700 p-4 bg-white dark:bg-gray-900 transition-colors duration-200">
 
         <button type="button" @click="open = !open" :aria-expanded="open"
             class="w-full flex items-center justify-between px-4 py-3 text-left">
@@ -600,10 +642,11 @@
 
             {{-- Summary Cards --}}
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.5rem;">
-                <div class="rounded-lg border-t-4 border-blue-500 bg-white dark:bg-gray-800 shadow-sm p-3">
+                <div class="rounded-lg border-t-4 border-blue-500 bg-white dark:bg-gray-800 shadow-sm p-3 cursor-pointer hover:shadow-md transition-shadow"
+                     @click="gstLoading=true; gstModal=true; gstHtml=''; fetch('{{ route('admin.dashboard.gst.transactions.modal') }}?gst_month={{ $gstFilter }}', {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.text()).then(t=>{ gstHtml=t; gstLoading=false; }).catch(()=>{ gstHtml='<div class=\'p-4\'>Failed to load.</div>'; gstLoading=false; });">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">GST Collected</div>
                     <div class="text-blue-600 dark:text-blue-400 text-xl font-bold mt-1">{{ format_money($gstCollected, $currency) }}</div>
-                    <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">from income</div>
+                    <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">from income ↗</div>
                 </div>
                 <div class="rounded-lg border-t-4 border-red-400 bg-white dark:bg-gray-800 shadow-sm p-3">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">GST Paid (ITC)</div>
@@ -615,10 +658,11 @@
                     <div class="text-yellow-600 dark:text-yellow-400 text-xl font-bold mt-1">{{ format_money($netGst, $currency) }}</div>
                     <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">owed to govt</div>
                 </div>
-                <div class="rounded-lg border-t-4 border-purple-400 bg-white dark:bg-gray-800 shadow-sm p-3">
+                <div class="rounded-lg border-t-4 border-purple-400 bg-white dark:bg-gray-800 shadow-sm p-3 cursor-pointer hover:shadow-md transition-shadow"
+                     @click="tdsLoading=true; tdsModal=true; tdsHtml=''; fetch('{{ route('admin.dashboard.tds.transactions.modal') }}?gst_month={{ $gstFilter }}', {headers:{'X-Requested-With':'XMLHttpRequest'}}).then(r=>r.text()).then(t=>{ tdsHtml=t; tdsLoading=false; }).catch(()=>{ tdsHtml='<div class=\'p-4\'>Failed to load.</div>'; tdsLoading=false; });">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">TDS Held (Pure TDS)</div>
                     <div class="text-purple-600 dark:text-purple-400 text-xl font-bold mt-1">{{ format_money($tdsHeldPure, $currency) }}</div>
-                    <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">standalone TDS</div>
+                    <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">standalone TDS ↗</div>
                 </div>
                 <div class="rounded-lg border-t-4 border-cyan-400 bg-white dark:bg-gray-800 shadow-sm p-3">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">TDS Held (on GST Invoices)</div>
@@ -631,88 +675,33 @@
                     <div class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">claim at filing</div>
                 </div>
             </div>
+        </div>
 
-            {{-- Transactions side by side --}}
-            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-                {{-- GST Transactions --}}
-                <div class="overflow-x-auto rounded border">
-                    <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">GST Transactions</div>
-                    <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr class="text-left">
-                                <th class="p-2 border">Date</th>
-                                <th class="p-2 border">Co.</th>
-                                <th class="p-2 border">Party</th>
-                                <th class="p-2 border">Dir</th>
-                                <th class="p-2 border">Base</th>
-                                <th class="p-2 border">GST</th>
-                                <th class="p-2 border">TDS</th>
-                                <th class="p-2 border">Bank Hit</th>
-                               
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @php $gstColspan = 8; @endphp
-                            @forelse($gstTransactions as $gt)
-                                <tr>
-                                    <td class="p-2 border">{{ \Carbon\Carbon::parse($gt->date)->format('d M Y') }}</td>
-                                    <td class="p-2 border">{{ $gt->company->name ?? '-' }}</td>
-                                    <td class="p-2 border">{{ $gt->name }}</td>
-                                    <td class="p-2 border">
-                                        @if($gt->type === 'Income')
-                                            <span style="border:1px solid #22c55e;color:#16a34a;" class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium">▲ IN</span>
-                                        @else
-                                            <span style="border:1px solid #ef4444;color:#dc2626;" class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium">▼ OUT</span>
-                                        @endif
-                                    </td>
-                                    <td class="p-2 border">{{ format_money($gt->base, $currency) }}</td>
-                                    <td class="p-2 border">{{ format_money($gt->gstLocked, $currency) }}</td>
-                                    <td class="p-2 border">{{ format_money($gt->tds, $currency) }}</td>
-                                    <td class="p-2 border">{{ format_money($gt->gstLocked, $currency) }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="{{ $gstColspan }}" class="p-4 text-center text-gray-500">No GST transactions found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+        <!-- GST Transactions Modal -->
+        <div x-show="gstModal" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4" @keydown.escape.window="gstModal=false" @click.self="gstModal=false">
+            <div class="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-900 shadow p-0 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">GST Transactions</h2>
+                    <button class="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900" @click="gstModal=false">&times;</button>
                 </div>
-
-                {{-- TDS Transactions --}}
-                <div class="overflow-x-auto rounded border">
-                    <div class="px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-900 dark:text-gray-100">TDS Transactions</div>
-                     <table class="w-full text-sm">
-                        <thead class="bg-gray-50">
-                            <tr class="text-left">
-                                <th class="p-2 border">Date</th>
-                                <th class="p-2 border">Co.</th>
-                                <th class="p-2 border">Party</th>
-                                <th class="p-2 border">Invoice</th>
-                                <th class="p-2 border">TDS%</th>
-                                <th class="p-2 border">TDS Held</th>
-                                <th class="p-2 border">Bank Received</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($tdsTransactions as $td)
-                                <tr>
-                                    <td class="p-2 border">{{ \Carbon\Carbon::parse($td->date)->format('d M Y') }}</td>
-                                    <td class="p-2 border">{{ $td->company->name ?? '-' }}</td>
-                                    <td class="p-2 border">{{ $td->name }}</td>
-                                    <td class="p-2 border">{{ format_money($td->invoice_amount, $currency) }}</td>
-                                    <td class="p-2 border">{{ $td->tds_rate }}%</td>
-                                    <td class="p-2 border">{{ format_money($td->tds, $currency) }}</td>
-                                    <td class="p-2 border">{{ format_money($td->amount, $currency) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" class="p-4 text-center text-gray-500">No TDS transactions.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="max-h-[70vh] overflow-auto">
+                    <template x-if="gstLoading"><div class="p-6 text-sm text-gray-600 dark:text-gray-400">Loading…</div></template>
+                    <div x-html="gstHtml"></div>
                 </div>
+            </div>
+        </div>
 
+        <!-- TDS Transactions Modal -->
+        <div x-show="tdsModal" x-transition x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 dark:bg-black/60 p-4" @keydown.escape.window="tdsModal=false" @click.self="tdsModal=false">
+            <div class="w-full max-w-4xl rounded-xl bg-white dark:bg-gray-900 shadow p-0 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">TDS Transactions</h2>
+                    <button class="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900" @click="tdsModal=false">&times;</button>
+                </div>
+                <div class="max-h-[70vh] overflow-auto">
+                    <template x-if="tdsLoading"><div class="p-6 text-sm text-gray-600 dark:text-gray-400">Loading…</div></template>
+                    <div x-html="tdsHtml"></div>
+                </div>
             </div>
         </div>
     </div>

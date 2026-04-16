@@ -7,6 +7,14 @@
             background: #2563eb;
             color: white;
         }
+        .type-toggle-income { background: #fff; color: #1f2937; }
+        .type-toggle-income.active { background: #22c55e; color: #fff; }
+        .type-toggle-expense { background: #fff; color: #1f2937; }
+        .type-toggle-expense.active { background: #ef4444; color: #fff; }
+        .status-toggle-paid { background: #fff; color: #1f2937; }
+        .status-toggle-paid.active { background: #22c55e; color: #fff; }
+        .status-toggle-pending { background: #fff; color: #1f2937; }
+        .status-toggle-pending.active { background: #f59e0b; color: #fff; }
     </style>
     {{-- Banner for admin on "All companies" --}}
     @if($companyIsAll)
@@ -15,9 +23,8 @@
         </div>
     @endif
 
-    {{-- FORM --}}
-    <div class="mb-2">
-        {{-- ACCORDION: Add Transaction --}}
+    {{-- MOBILE: accordion form --}}
+    <div class="md:hidden mb-2">
         <div
             x-data="{ open: {{ ($canCreate || $errors->any()) ? 'true' : 'false' }} }"
             class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors duration-200"
@@ -30,22 +37,15 @@
                 {{ $canCreate ? '' : 'disabled' }}
             >
                 <span class="text-lg font-semibold">Add Transaction</span>
-
                 <span class="inline-flex items-center gap-2 text-sm text-gray-600">
                     @if(!$canCreate)
                         <em class="text-gray-500">Select a company to enable</em>
                     @endif
-                    <svg
-                        class="h-5 w-5 transition-transform duration-200"
-                        :class="open ? 'rotate-180' : ''"
-                        viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    >
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M6 9l6 6 6-6"/>
+                    <svg class="h-5 w-5 transition-transform duration-200" :class="open ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M6 9l6 6 6-6"/>
                     </svg>
                 </span>
             </button>
-
             <div x-show="open" x-transition x-cloak class="border-t px-4 py-4">
                 <form method="POST" action="{{ route('admin.transactions.store') }}"
                     {{ $canCreate ? '' : 'aria-disabled=true' }}>
@@ -318,16 +318,13 @@
                 </form>
             </div>
         </div>
-
     </div>
-
-    {{-- FILTERS + LIST --}}
-    {{-- MOBILE: simple card list --}}
 
     @php
         $activeFilters = 0;
         if($fDateStart || $fDateEnd)   $activeFilters++;
         if($fType)   $activeFilters++;
+        if($fTxType) $activeFilters++;
         if($fAccount)$activeFilters++;
     @endphp
     <div class="md:hidden space-y-3">
@@ -351,21 +348,22 @@
 
                 <div x-show="open" x-transition x-cloak class="border-t px-4 py-4">
                     <form method="GET" action="{{ route('admin.transactions.index') }}" class="grid gap-3">
-                        <div>
-                            <label class="sr-only">Start</label>
-                            <input type="date"
-                                name="start_date"
-                                value="{{ old('start_date', $clampedStart ?? $startDate) }}"
-                                min="{{ $startDate }}"
-                                max="{{ $endDate }}"
-                                class="border rounded p-2 text-sm">
-                            <label class="sr-only">End</label>
-                            <input type="date"
-                                name="end_date"
-                                value="{{ old('end_date', $clampedEnd ?? $endDate) }}"
-                                min="{{ $startDate }}"
-                                max="{{ $endDate }}"
-                                class="border rounded p-2 text-sm">
+                        <div x-data="{ open: false, start: '{{ old('start_date', $clampedStart ?? $startDate) }}', end: '{{ old('end_date', $clampedEnd ?? $endDate) }}' }">
+                            <label class="block text-xs font-medium mb-1">Date Range</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">From</label>
+                                    <input type="date" x-model="start" name="start_date"
+                                        min="{{ $startDate }}" max="{{ $endDate }}"
+                                        class="w-full border rounded p-2 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">To</label>
+                                    <input type="date" x-model="end" name="end_date"
+                                        min="{{ $startDate }}" max="{{ $endDate }}"
+                                        class="w-full border rounded p-2 text-sm">
+                                </div>
+                            </div>
                         </div>
 
                         <div>
@@ -375,6 +373,17 @@
                                 @foreach($types as $t)
                                     <option value="{{ $t }}" {{ $fType===$t ? 'selected' : '' }}>{{ $t }}</option>
                                 @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Transaction Type</label>
+                            <select name="transaction_type" class="w-full border rounded p-2 text-sm">
+                                <option value="">All</option>
+                                <option value="gst" {{ ($fTxType??'')==='gst' ? 'selected' : '' }}>🧾 GST</option>
+                                <option value="tds" {{ ($fTxType??'')==='tds' ? 'selected' : '' }}>🏛️ TDS</option>
+                                <option value="exempt" {{ ($fTxType??'')==='exempt' ? 'selected' : '' }}>🏦 Tax Exempt</option>
+                                <option value="cash" {{ ($fTxType??'')==='cash' ? 'selected' : '' }}>💵 Cash</option>
                             </select>
                         </div>
 
@@ -760,41 +769,316 @@
         <div class="pt-1">{{ $transactions->links() }}</div>
     </div>
 
-    {{-- DESKTOP/TABLE --}}
-    <div class="hidden md:block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 transition-colors duration-200">
+    {{-- DESKTOP: two-column layout --}}
+    <div class="hidden md:flex gap-4 items-start">
+
+        {{-- LEFT: Add Transaction form --}}
+        <div class="flex-shrink-0 self-start" style="width: 420px;">
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 transition-colors duration-200">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <span class="text-base font-semibold text-gray-900 dark:text-gray-100">New Transaction</span>
+                    @if(!$canCreate)
+                        <em class="text-xs text-gray-500">Select a company</em>
+                    @endif
+                </div>
+                <div class="px-4 py-4">
+                    <form method="POST" action="{{ route('admin.transactions.store') }}" {{ $canCreate ? '' : 'aria-disabled=true' }}>
+                        @csrf
+                        <div
+                            x-data="{
+                                 type: '{{ old('type','0') }}',
+                                transactionType: '{{ old('transaction_type','gst') }}',
+                                tds_rate: '{{ old('tds_rate','1') }}',
+                                invoiceAmount: '{{ old('invoice_amount','') }}',
+                                category_id: {{ (int) old('category_id', 0) }},
+                                twoWay: {{ old('two_way') ? 'true' : 'false' }},
+                                amountMode: '{{ old('amount_mode','base') }}',
+                                rawAmount: '{{ old('amount','') }}',
+                                name: '{{ old('name','') }}',
+                                inex: @js($inexCats->map(fn($c)=>['id'=>$c->id,'name'=>$c->name])),
+                                accountsList: @js($accounts->map(fn($a)=>['id'=>$a->id,'name'=>$a->name])),
+                                get cats(){ return this.inex },
+                                get gstRate(){ return 0.18 },
+                                get baseAmount(){
+                                    let v = parseFloat(this.rawAmount) || 0;
+                                    return this.amountMode === 'base' ? v : v / (1 + this.gstRate);
+                                },
+                                get gstAmount(){ return this.baseAmount * this.gstRate },
+                                get totalAmount(){ return this.baseAmount + this.gstAmount },
+                                get tdsRateNum(){ return parseFloat(this.tds_rate) || 0 },
+                                get tdsAmount(){ return (parseFloat(this.invoiceAmount) || 0) * this.tdsRateNum / 100 },
+                                get tdsUsable(){ return (parseFloat(this.invoiceAmount) || 0) - this.tdsAmount },
+                                fmt(n){ return '₹' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',') }
+                            }"
+                        >
+                            <div class="space-y-3">
+                                {{-- Transaction Type --}}
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Transaction Type</label>
+                                    <div class="grid grid-cols-2 gap-2">
+                                        @php
+                                            $txTypes = [
+                                                'gst'    => ['icon' => '🧾', 'title' => 'GST',        'sub' => '18% tax'],
+                                                'tds'    => ['icon' => '🏛️', 'title' => 'TDS',        'sub' => 'govt deduct'],
+                                                'exempt' => ['icon' => '🏦', 'title' => 'Tax Exempt', 'sub' => 'bank, no tax'],
+                                                'cash'   => ['icon' => '💵', 'title' => 'Cash',       'sub' => 'physical cash'],
+                                            ];
+                                        @endphp
+                                        @foreach($txTypes as $val => $info)
+                                            <label class="cursor-pointer" @click="transactionType = '{{ $val }}'">
+                                                <input type="radio" name="transaction_type" value="{{ $val }}" x-model="transactionType" class="sr-only"
+                                                    {{ old('transaction_type', 'gst') === $val ? 'checked' : '' }}
+                                                    {{ $canCreate ? '' : 'disabled' }}>
+                                                <div class="flex flex-col items-center justify-center h-16 rounded-xl border-2 px-1 py-1 text-center transition-all"
+                                                    :class="transactionType === '{{ $val }}'
+                                                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-400 shadow-md'
+                                                        : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800'">
+                                                    <span class="text-lg leading-none mb-0.5">{{ $info['icon'] }}</span>
+                                                    <span class="text-xs font-semibold text-gray-800 dark:text-gray-100">{{ $info['title'] }}</span>
+                                                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ $info['sub'] }}</span>
+                                                </div>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    @error('transaction_type')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Income / Expense toggle --}}
+                                <div>
+                                    <div class="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                                        <button type="button" @click="type = 'Income'"
+                                            :class="type === 'Income' ? 'type-toggle-income active' : 'type-toggle-income'"
+                                            class="flex-1 py-2 text-sm font-semibold transition-colors">▲ Income</button>
+                                        <button type="button" @click="type = 'Expense'"
+                                            :class="type === 'Expense' ? 'type-toggle-expense active' : 'type-toggle-expense'"
+                                            class="flex-1 py-2 text-sm font-semibold border-l border-gray-200 dark:border-gray-600 transition-colors">▼ Expense</button>
+                                    </div>
+                                    <input type="hidden" name="type" :value="type">
+                                    @error('type')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Date --}}
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Date</label>
+                                    <input type="date" name="date" value="{{ old('date', $defaultDateForForm) }}" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                    @error('date')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Client / Vendor --}}
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Client / Vendor</label>
+                                    <input type="text" name="name" x-model="name" placeholder="Name" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                    @error('name')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Description --}}
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Description</label>
+                                    <textarea name="description" placeholder="Optional" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none" rows="2" {{ $canCreate ? '' : 'disabled' }}>{{ old('description') }}</textarea>
+                                    @error('description')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Amount Mode (GST only) --}}
+                                <div x-show="transactionType === 'gst'">
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Amount Mode</label>
+                                    <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                                        <button type="button" @click="amountMode = 'base'"
+                                            :class="amountMode === 'base' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
+                                            class="flex-1 px-2 py-1.5 text-xs font-medium transition-colors">Base (excl. GST)</button>
+                                        <button type="button" @click="amountMode = 'total'"
+                                            :class="amountMode === 'total' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'"
+                                            class="flex-1 px-2 py-1.5 text-xs font-medium border-l border-gray-300 dark:border-gray-600 transition-colors">Total (incl. GST)</button>
+                                    </div>
+                                    <input type="hidden" name="amount_mode" :value="amountMode">
+                                </div>
+
+                                {{-- Amount --}}
+                                <div x-show="transactionType === 'gst' || transactionType === 'exempt' || transactionType === 'cash'">
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Amount (₹)</label>
+                                    <div class="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                                        <span class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border-r border-gray-300 dark:border-gray-600 select-none">{{ $currencySymbol ?: '₹' }}</span>
+                                        <input type="number" step="0.01" name="amount" x-model="rawAmount" value="{{ old('amount') }}" placeholder="0.00"
+                                            class="flex-1 p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none border-none" {{ $canCreate ? '' : 'disabled' }}>
+                                    </div>
+                                    @error('amount')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- GST Breakdown --}}
+                                <div x-show="transactionType === 'gst' && parseFloat(rawAmount) > 0">
+                                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 text-xs space-y-1">
+                                        <div class="flex justify-between"><span class="text-gray-500">Base</span><span x-text="fmt(baseAmount)"></span></div>
+                                        <div class="flex justify-between text-blue-600"><span>GST 18%</span><span x-text="'+ ' + fmt(gstAmount)"></span></div>
+                                        <div class="flex justify-between font-semibold border-t pt-1"><span>Bank Hit</span><span x-text="fmt(totalAmount)"></span></div>
+                                        <div class="flex justify-between text-orange-500"><span>Locked GST</span><span x-text="'− ' + fmt(gstAmount)"></span></div>
+                                        <div class="flex justify-between font-semibold text-green-700"><span>Usable</span><span x-text="fmt(baseAmount)"></span></div>
+                                    </div>
+                                    <input type="hidden" name="base"      :value="transactionType === 'gst' ? baseAmount.toFixed(2) : ''">
+                                    <input type="hidden" name="gst"       :value="transactionType === 'gst' ? gstAmount.toFixed(2) : ''">
+                                    <input type="hidden" name="gstLocked" :value="transactionType === 'gst' ? gstAmount.toFixed(2) : ''">
+                                    <input type="hidden" name="usable"    :value="transactionType === 'gst' ? baseAmount.toFixed(2) : ''">
+                                    <input type="hidden" name="netRec"    :value="transactionType === 'gst' ? totalAmount.toFixed(2) : ''">
+                                </div>
+
+                                {{-- TDS fields --}}
+                                <div x-show="transactionType === 'tds'">
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Invoice Amount</label>
+                                    <div class="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+                                        <span class="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 border-r border-gray-300 dark:border-gray-600 select-none">{{ $currencySymbol ?: '₹' }}</span>
+                                        <input type="number" step="0.01" name="invoice_amount" x-model="invoiceAmount" value="{{ old('invoice_amount') }}"
+                                            class="flex-1 p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 outline-none border-none" {{ $canCreate ? '' : 'disabled' }}>
+                                    </div>
+                                    @error('invoice_amount')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+                                <div x-show="transactionType === 'tds'">
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">TDS Rate</label>
+                                    <select name="tds_rate" x-model="tds_rate" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                        <option value="1">1%</option>
+                                        <option value="2">2%</option>
+                                    </select>
+                                    @error('tds_rate')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+                                <div x-show="transactionType === 'tds' && parseFloat(invoiceAmount) > 0">
+                                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-2 text-xs space-y-1">
+                                        <div class="flex justify-between"><span class="text-gray-500">Invoice</span><span x-text="fmt(parseFloat(invoiceAmount)||0)"></span></div>
+                                        <div class="flex justify-between text-red-600"><span x-text="'TDS @ '+tds_rate+'%'"></span><span x-text="'− '+fmt(tdsAmount)"></span></div>
+                                        <div class="flex justify-between font-semibold border-t pt-1 text-green-700"><span>Usable</span><span x-text="fmt(tdsUsable)"></span></div>
+                                    </div>
+                                    <input type="hidden" name="amount" x-bind:disabled="transactionType !== 'tds'" :value="tdsAmount.toFixed(2)">
+                                </div>
+
+                                {{-- Two-way --}}
+                                <div>
+                                    <label class="inline-flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" name="two_way" value="1" x-model="twoWay" class="rounded border-gray-300" {{ $canCreate ? '' : 'disabled' }}>
+                                        <span class="text-xs font-medium text-gray-700 dark:text-gray-300">Two-way transaction</span>
+                                    </label>
+                                </div>
+
+                                {{-- Account --}}
+                                <div>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Account</label>
+                                    <select name="account_id" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                        <option value="0">Select Account</option>
+                                        @foreach($accounts as $a)
+                                            <option value="{{ $a->id }}" {{ (int)old('account_id')===$a->id ? 'selected':'' }}>{{ $a->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('account_id')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Category --}}
+                                <div x-show="!twoWay" x-cloak>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Category</label>
+                                    <select name="category_id" x-model.number="category_id" :disabled="twoWay"
+                                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                        <option value="">— No Category —</option>
+                                        <template x-for="c in cats" :key="c.id">
+                                            <option :value="Number(c.id)" x-text="c.name"></option>
+                                        </template>
+                                    </select>
+                                    @error('category_id')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Counter Account --}}
+                                <div x-show="twoWay" x-cloak>
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">
+                                        <span x-text="type==='Income' ? 'Expense Account' : (type==='Expense' ? 'Income Account' : 'Counter Account')"></span>
+                                    </label>
+                                    <select name="counter_account_id" :required="twoWay"
+                                        class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100" {{ $canCreate ? '' : 'disabled' }}>
+                                        <option value="0" x-text="type==='Income' ? 'Select Expense Account' : (type==='Expense' ? 'Select Income Account' : 'Select Account')"></option>
+                                        @foreach($accounts as $a)
+                                            <option value="{{ $a->id }}" {{ (int)old('account_id')===$a->id ? 'selected':'' }}>{{ $a->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('counter_account_id')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                {{-- Payment Status --}}
+                                <div x-data="{ payStatus: '{{ old('status', 'paid') }}' }">
+                                    <label class="block text-xs font-medium mb-1 text-gray-700 dark:text-gray-300">Payment Status</label>
+                                    <div class="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden">
+                                        <button type="button" @click="payStatus = 'paid'"
+                                            :class="payStatus === 'paid' ? 'status-toggle-paid active' : 'status-toggle-paid'"
+                                            class="flex-1 py-2 text-xs font-semibold transition-colors">✓ Paid / Received</button>
+                                        <button type="button" @click="payStatus = 'pending'"
+                                            :class="payStatus === 'pending' ? 'status-toggle-pending active' : 'status-toggle-pending'"
+                                            class="flex-1 py-2 text-xs font-semibold border-l border-gray-200 dark:border-gray-600 transition-colors">⏳ Pending</button>
+                                    </div>
+                                    <input type="hidden" name="status" :value="payStatus">
+                                    @error('status')<p class="text-red-600 text-xs mt-1">{{ $message }}</p>@enderror
+                                </div>
+
+                                <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-base font-semibold transition-colors" style="display:block;width:100%;" {{ $canCreate ? '' : 'disabled' }}>
+                                    + Add Transaction
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- RIGHT: filters + table --}}
+        <div class="flex-1 min-w-0 overflow-hidden">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 transition-colors duration-200">
         {{-- Filter toolbar: two rows, auto-grid, icons in inputs --}}
         <div class="mb-4">
             <form method="GET" action="{{ route('admin.transactions.index') }}"
                 class="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-3 transition-colors duration-200">
 
                 <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
-                    {{-- Start date --}}
-                    <div class="relative">
-                        <label class="sr-only">Start date</label>
-                        <input type="date" name="start_date"
-                            value="{{ old('start_date', $clampedStart ?? $startDate) }}"
-                            min="{{ $startDate }}" max="{{ $endDate }}"
-                            class="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                            onchange="this.form.submit()"
-                        />
-                    </div>
-
-                    {{-- End date --}}
-                    <div class="relative">
-                        <label class="sr-only">End date</label>
-                        <input type="date" name="end_date"
-                            value="{{ old('end_date', $clampedEnd ?? $endDate) }}"
-                            min="{{ $startDate }}" max="{{ $endDate }}"
-                            class="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 transition-colors duration-200"
-                            onchange="this.form.submit()"
-                        />
+                    {{-- Date Range Picker --}}
+                    <div class="relative sm:col-span-2 lg:col-span-1"
+                         x-data="{
+                            open: false,
+                            start: '{{ old('start_date', $clampedStart ?? $startDate) }}',
+                            end: '{{ old('end_date', $clampedEnd ?? $endDate) }}',
+                            get label() {
+                                if (this.start && this.end) return this.start + ' → ' + this.end;
+                                if (this.start) return this.start + ' → …';
+                                return 'Date Range';
+                            }
+                         }"
+                         @click.outside="open = false">
+                        <button type="button"
+                            @click="open = !open"
+                            class="flex items-center gap-2 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 transition-colors duration-200 text-left">
+                            <svg class="h-4 w-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="truncate" x-text="label"></span>
+                        </button>
+                        <div x-show="open" x-transition x-cloak
+                             class="absolute z-30 mt-1 left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3 min-w-[260px]">
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">From</label>
+                                    <input type="date" x-model="start"
+                                        name="start_date"
+                                        min="{{ $startDate }}" max="{{ $endDate }}"
+                                        class="w-full border border-gray-300 dark:border-gray-600 rounded p-1.5 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">To</label>
+                                    <input type="date" x-model="end"
+                                        name="end_date"
+                                        min="{{ $startDate }}" max="{{ $endDate }}"
+                                        class="w-full border border-gray-300 dark:border-gray-600 rounded p-1.5 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                            </div>
+                            <div class="flex gap-2 mt-2">
+                                <button type="submit" class="flex-1 px-2 py-1.5 bg-blue-600 text-white rounded text-xs">Apply</button>
+                                <button type="button" @click="start='{{ $startDate }}'; end='{{ $endDate }}'; open=false; $nextTick(()=>$el.closest('form').submit())"
+                                    class="flex-1 px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded text-xs text-gray-700 dark:text-gray-300">Reset</button>
+                            </div>
+                        </div>
                     </div>
 
                     {{-- Type --}}
                     <div class="relative">
                         <label class="sr-only">Type</label>
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <!-- tag icon -->
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" viewBox="0 0 24 24">
                             <path d="M17.0020048,13 C17.5542895,13 18.0020048,13.4477153 18.0020048,14 C18.0020048,14.5128358 17.6159646,14.9355072 17.1186259,14.9932723 L17.0020048,15 L5.41700475,15 L8.70911154,18.2928932 C9.0695955,18.6533772 9.09732503,19.2206082 8.79230014,19.6128994 L8.70911154,19.7071068 C8.34862757,20.0675907 7.78139652,20.0953203 7.38910531,19.7902954 L7.29489797,19.7071068 L2.29489797,14.7071068 C1.69232289,14.1045317 2.07433707,13.0928192 2.88837381,13.0059833 L3.00200475,13 L17.0020048,13 Z M16.6128994,4.20970461 L16.7071068,4.29289322 L21.7071068,9.29289322 C22.3096819,9.8954683 21.9276677,10.9071808 21.1136309,10.9940167 L21,11 L7,11 C6.44771525,11 6,10.5522847 6,10 C6,9.48716416 6.38604019,9.06449284 6.88337887,9.00672773 L7,9 L18.585,9 L15.2928932,5.70710678 C14.9324093,5.34662282 14.9046797,4.77939176 15.2097046,4.38710056 L15.2928932,4.29289322 C15.6533772,3.93240926 16.2206082,3.90467972 16.6128994,4.20970461 Z"/>
                             </svg>
@@ -806,6 +1090,21 @@
                                     {{ $t }}
                                 </option>
                             @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Transaction Type --}}
+                    <div class="relative">
+                        <label class="sr-only">Transaction Type</label>
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <select name="transaction_type" class="block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 pl-9 text-sm text-gray-900 dark:text-gray-100 transition-colors duration-200" onchange="this.form.submit()">
+                            <option value="">All Tx Type</option>
+                            <option value="gst" {{ ($fTxType??'')==='gst' ? 'selected' : '' }}>🧾 GST</option>
+                            <option value="tds" {{ ($fTxType??'')==='tds' ? 'selected' : '' }}>🏛️ TDS</option>
+                            <option value="exempt" {{ ($fTxType??'')==='exempt' ? 'selected' : '' }}>🏦 Tax Exempt</option>
+                            <option value="cash" {{ ($fTxType??'')==='cash' ? 'selected' : '' }}>💵 Cash</option>
                         </select>
                     </div>
 
@@ -1249,5 +1548,6 @@
         </div>
 
         <div class="mt-4"><div class="pagination-custom">{{ $transactions->links() }}</div></div>
-    </div>
+        </div>{{-- end right panel --}}
+        </div>{{-- end desktop two-col --}}
 </x-layouts.admin>

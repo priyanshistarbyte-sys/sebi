@@ -152,7 +152,7 @@
             </aside>
 
             <main class="flex-1 bg-gray-50 dark:bg-gray-950 transition-colors duration-200">
-                <div class="mx-auto max-w-7xl p-6">
+                <div class="mx-auto max-w-full p-6">
                     {{-- big banner inside the main content --}}
                     @if (session('status'))
                         <div

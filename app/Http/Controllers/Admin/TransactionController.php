@@ -59,6 +59,7 @@ class TransactionController extends Controller
         $rawStart    = $request->query('start_date');       // YYYY-MM-DD optional
         $rawEnd      = $request->query('end_date');         // YYYY-MM-DD optional
         $fType     = $request->query('type');       // Income|Expense
+        $fTxType   = $request->query('transaction_type'); // gst|tds|exempt|cash
         $fAccount  = (int) $request->query('account_id'); // category id
         $searchQ   = trim((string)$request->query('q', ''));
         $perPage   = (int) $request->query('per_page', 15);
@@ -114,6 +115,7 @@ class TransactionController extends Controller
 
         $query = $query
             ->when(in_array($fType, $this->types, true), fn($q) => $q->where('transactions.type', $fType))
+            ->when($fTxType, fn($q) => $q->where('transactions.transaction_type', $fTxType))
             ->when($fAccount > 0, fn($q) => $q->where('transactions.account_id', $fAccount))
             ->when($searchQ, function($q) use ($searchQ) {
                 $q->where(function($q2) use ($searchQ) {
@@ -199,6 +201,7 @@ class TransactionController extends Controller
             'startDate'         => $startDate,   // session month start (for min attr)
             'endDate'           => $endDate,     // session month end (for max attr)
             'fType'             => $fType,
+            'fTxType'           => $fTxType,
             'fAccount'          => $fAccount,
             'fSearch'           => $searchQ,
             'perPage'           => $perPage,
@@ -215,95 +218,102 @@ class TransactionController extends Controller
         $user = $request->user();
         $cid  = session('active_company_id');
 
-        // must have a concrete company to create
         if (!$cid) abort(422, 'Please select a company in the header.');
+
+        // TDS: recompute amount from invoice before validation
+        if ($request->transaction_type === 'tds' && $request->invoice_amount && $request->tds_rate) {
+            $invoice   = (float) $request->invoice_amount;
+            $tdsRate   = (float) $request->tds_rate;
+            $tdsAmount = $invoice * $tdsRate / 100;
+            $request->merge(['amount' => round($invoice - $tdsAmount, 2)]);
+        }
 
         $data = $request->validate([
             'date'               => ['required','date'],
-            'type'               => ['required', Rule::in($this->types), 'not_in:0'],
+            'type'               => ['required', Rule::in($this->types)],
             'category_id'        => [
                 'nullable',
                 Rule::exists('categories','id')->where(fn($q)=>$q
-                    ->where('company_id', (int)session('active_company_id'))
+                    ->where('company_id', (int)$cid)
                     ->whereIn('type', ['Income/Expense'])
                 ),
             ],
             'account_id'         => [
                 'required', 'integer', 'not_in:0',
                 Rule::exists('categories','id')->where(fn($q)=>$q
-                    ->where('company_id', (int)session('active_company_id'))
+                    ->where('company_id', (int)$cid)
                     ->where('type','Account')
                 ),
             ],
             'amount'             => ['required','numeric','min:0.01'],
             'description'        => ['nullable','string','max:65535'],
             'two_way'            => ['nullable','boolean'],
+            'transaction_type'   => ['nullable','string'],
+            'name'               => ['nullable','string','max:255'],
+            'status'             => ['nullable','string'],
+            'invoice_amount'     => ['nullable','numeric','min:0'],
+            'tds_rate'           => ['nullable','numeric'],
+            'amount_mode'        => ['nullable','string'],
+            'base'               => ['nullable','numeric'],
+            'gst'                => ['nullable','numeric'],
+            'gstLocked'          => ['nullable','numeric'],
+            'usable'             => ['nullable','numeric'],
+            'netRec'             => ['nullable','numeric'],
         ]);
-        if ($request->transaction_type === 'tds' && $request->invoice_amount && $request->tds_rate) {
-    
-            $invoice = (float) $request->invoice_amount;
-            $tdsRate = (float) $request->tds_rate;
 
-            $tdsAmount = $invoice * $tdsRate / 100;
-
-            $request->merge([
-                'amount' => round($invoice - $tdsAmount, 2),
-            ]);
-        }
-        // Account must be an Account category of current company 
         $account = Category::where('company_id',(int)$cid)
                     ->where('type','Account')
                     ->where('id',$data['account_id'])
                     ->firstOrFail();
 
         $twoWay = (bool) $request->boolean('two_way');
-        $categoryId = $request->category_id ?: null;
+        $categoryId = $data['category_id'] ?? null;
+
         if ($twoWay) {
             $request->validate([
                 'counter_account_id' => ['required','different:account_id','exists:categories,id'],
             ]);
             $categoryId = Category::firstOrCreate([
-                'company_id' => (int)$cid, // set from context
-                'name' => 'Transfer',
-                'type' => 'Income/Expense',
+                'company_id' => (int)$cid,
+                'name'       => 'Transfer',
+                'type'       => 'Income/Expense',
             ], [])->id;
         } else {
             $request->validate([
-                'category_id' => ['required','integer','exists:categories,id', 'not_in:0'], // must choose one
+                'category_id' => ['required','integer','exists:categories,id','not_in:0'],
             ]);
         }
-        
+
         $groupId = (string) Str::uuid();
-        // 1) Main entry
-         $t1 = Transaction::create([
-            'company_id'      => (int)$cid,
-            'date'            => $request->date,
-            'type'            => $request->type,
-            'amount'          => $request->amount,
-            'account_id'      => $request->account_id,
-            'category_id'     => $categoryId,
-            'description'     => $request->description,
-            'status'          => $request->status ?: null,
-            'name'            => $request->name ?: null,
-            'group_id'        => $twoWay ? $groupId : null,
+
+        $t1 = Transaction::create([
+            'company_id'          => (int)$cid,
+            'date'                => $data['date'],
+            'type'                => $data['type'],
+            'amount'              => $data['amount'],
+            'account_id'          => $data['account_id'],
+            'category_id'         => $categoryId,
+            'description'         => $data['description'] ?? null,
+            'status'              => $data['status'] ?? null,
+            'name'                => $data['name'] ?? null,
+            'transaction_type'    => $data['transaction_type'] ?? null,
+            'invoice_amount'      => $data['invoice_amount'] ?? null,
+            'tds_rate'            => $data['tds_rate'] ?? null,
+            'amount_mode'         => $data['amount_mode'] ?? 'base',
+            'base'                => $data['base'] ?? 0,
+            'gst'                 => $data['gst'] ?? 0,
+            'gstLocked'           => $data['gstLocked'] ?? 0,
+            'usable'              => $data['usable'] ?? 0,
+            'netRec'              => $data['netRec'] ?? 0,
+            'dir'                 => $data['type'] === 'Expense' ? 'out' : 'in',
+            'bankfit'             => $data['type'] === 'Expense' ? -((float)$data['amount']) : (float)$data['amount'],
+            'group_id'            => $twoWay ? $groupId : null,
             'main_transaction_id' => null,
-            'transaction_type'=> $request->transaction_type,
-            'invoice_amount'  => $request->invoice_amount,
-            'tds_rate'        => $request->tds_rate,
-            'base'            => $data['base'] ?? 0,
-            'gst'             => $data['gst'] ?? 0,
-            'gstLocked'       => $data['gstLocked'] ?? 0,
-            'usable'          => $data['usable'] ?? 0,
-            'netRec'          => $data['netRec'] ?? 0,
-            'dir'             => $request->type == 'Expense' ? 'out' : 'in',
-            'bankfit'         => $request->type == 'Expense' ? -((float)$request->amount) : (float)$request->amount,
-            'created_by'      => auth()->user()->id,
+            'created_by'          => auth()->id(),
         ]);
 
-        // 2) Counter (mirror) entry points to main via main_transaction_id
         if ($twoWay) {
             $flipped = $t1->type === 'Income' ? 'Expense' : 'Income';
-
             Transaction::create([
                 'company_id'          => (int)$cid,
                 'date'                => $t1->date,
@@ -311,27 +321,12 @@ class TransactionController extends Controller
                 'amount'              => $t1->amount,
                 'account_id'          => $request->counter_account_id,
                 'category_id'         => $categoryId,
-                'description'         => trim(($t1->description ?? '')),
+                'description'         => trim($t1->description ?? ''),
                 'group_id'            => $groupId,
                 'main_transaction_id' => $t1->id,
             ]);
         }
 
-        $monthToRecalc = Carbon::parse($data['date'])->startOfMonth();
-
-        /*OpeningBalanceService::recalcCompanyNextMonthFromMonth(
-            (int) ($cid),
-            $monthToRecalc,
-            (int) ($account->id)
-        );
-
-        if ($twoWay) {
-            OpeningBalanceService::recalcCompanyNextMonthFromMonth(
-                (int) ($cid),
-                $monthToRecalc,
-                (int) ($request->counter_account_id)
-            );
-        }*/
         session()->flash('tx_form_date', $data['date']);
 
         return back()->with('status', 'Transaction saved'.($twoWay ? ' (two-way pair created)' : ''));
@@ -370,9 +365,17 @@ class TransactionController extends Controller
         }
         $companyId = $transaction->company_id;
 
+        // TDS: recompute amount from invoice before validation
+        if ($request->transaction_type === 'tds' && $request->invoice_amount && $request->tds_rate) {
+            $invoice   = (float) $request->invoice_amount;
+            $tdsRate   = (float) $request->tds_rate;
+            $tdsAmount = $invoice * $tdsRate / 100;
+            $request->merge(['amount' => round($invoice - $tdsAmount, 2)]);
+        }
+
         $data = $request->validate([
             'date'               => ['required','date'],
-            'type'               => ['required', Rule::in($this->types), 'not_in:0'],
+            'type'               => ['required', Rule::in($this->types)],
             'category_id'        => [
                 'nullable',
                 Rule::exists('categories','id')->where(fn($q)=>$q
@@ -387,7 +390,7 @@ class TransactionController extends Controller
                     ->where('type','Account')
                 ),
             ],
-            'amount'             => ['nullable','numeric','min:0.01'],
+            'amount'             => ['required','numeric','min:0.01'],
             'description'        => ['nullable','string','max:65535'],
             'counter_account_id' => ['nullable','exists:categories,id'],
             'transaction_type'   => ['nullable','string'],
@@ -396,18 +399,12 @@ class TransactionController extends Controller
             'status'             => ['nullable','string'],
             'name'               => ['nullable','string','max:255'],
             'amount_mode'        => ['nullable','string'],
+            'base'               => ['nullable','numeric'],
+            'gst'                => ['nullable','numeric'],
+            'gstLocked'          => ['nullable','numeric'],
+            'usable'             => ['nullable','numeric'],
+            'netRec'             => ['nullable','numeric'],
         ]);
-
-        // TDS: compute amount from invoice
-        if ($request->transaction_type === 'tds' && $request->invoice_amount && $request->tds_rate) {
-            $invoice   = (float) $request->invoice_amount;
-            $tdsRate   = (float) $request->tds_rate;
-            $tdsAmount = $invoice * $tdsRate / 100;
-            $request->merge(['amount' => round($invoice - $tdsAmount, 2)]);
-        }
-
-        // Validate amount now (after possible TDS merge)
-        $request->validate(['amount' => ['required','numeric','min:0.01']]);
 
         $isTransfer = $transaction->isTransfer();
         if ($isTransfer) {
@@ -416,49 +413,38 @@ class TransactionController extends Controller
             ]);
         }
 
-        $account = Category::where('company_id', $companyId)
+        Category::where('company_id', $companyId)
             ->where('type','Account')
-            ->where('id', $request->account_id)
+            ->where('id', $data['account_id'])
             ->firstOrFail();
 
-        // GST computed fields
-        $txType    = $request->transaction_type;
-        $rawAmount = (float) $request->amount;
-        $amountMode = $request->amount_mode ?? 'base';
-        $gstRate   = 0.18;
-        $baseAmount = $txType === 'gst'
-            ? ($amountMode === 'base' ? $rawAmount : $rawAmount / (1 + $gstRate))
-            : 0;
-        $gstAmount  = $txType === 'gst' ? round($baseAmount * $gstRate, 2) : 0;
-        $totalAmount = $txType === 'gst' ? round($baseAmount + $gstAmount, 2) : 0;
-
-        DB::transaction(function () use ($request, $transaction, $isTransfer, $companyId, $txType, $baseAmount, $gstAmount, $totalAmount) {
+        DB::transaction(function () use ($data, $request, $transaction, $isTransfer, $companyId) {
             ['main' => $main, 'counter' => $counter] = $transaction->mainAndCounter();
 
             $mainData = [
-                'date'             => $request->date,
-                'type'             => $request->type,
-                'amount'           => $request->amount,
-                'account_id'       => $request->account_id,
-                'description'      => $request->description,
-                'status'           => $request->status ?: null,
-                'name'             => $request->name ?: null,
-                'transaction_type' => $txType,
-                'invoice_amount'   => $request->invoice_amount ?: null,
-                'tds_rate'         => $request->tds_rate ?: null,
-                'amount_mode'      => $request->amount_mode ?? 'base',
-                'base'             => $txType === 'gst' ? round($baseAmount, 2) : 0,
-                'gst'              => $gstAmount,
-                'gstLocked'        => $gstAmount,
-                'usable'           => $txType === 'gst' ? round($baseAmount, 2) : (float) $request->amount,
-                'netRec'           => $txType === 'gst' ? $totalAmount : (float) $request->amount,
-                'dir'              => $request->type === 'Expense' ? 'out' : 'in',
-                'bankfit'          => $request->type === 'Expense' ? -((float)$request->amount) : (float)$request->amount,
-                'created_by'      => auth()->user()->id,
+                'date'             => $data['date'],
+                'type'             => $data['type'],
+                'amount'           => $data['amount'],
+                'account_id'       => $data['account_id'],
+                'description'      => $data['description'] ?? null,
+                'status'           => $data['status'] ?? null,
+                'name'             => $data['name'] ?? null,
+                'transaction_type' => $data['transaction_type'] ?? null,
+                'invoice_amount'   => $data['invoice_amount'] ?? null,
+                'tds_rate'         => $data['tds_rate'] ?? null,
+                'amount_mode'      => $data['amount_mode'] ?? 'base',
+                'base'             => $data['base'] ?? 0,
+                'gst'              => $data['gst'] ?? 0,
+                'gstLocked'        => $data['gstLocked'] ?? 0,
+                'usable'           => $data['usable'] ?? 0,
+                'netRec'           => $data['netRec'] ?? 0,
+                'dir'              => $data['type'] === 'Expense' ? 'out' : 'in',
+                'bankfit'          => $data['type'] === 'Expense' ? -((float)$data['amount']) : (float)$data['amount'],
+                'created_by'       => auth()->id(),
             ];
 
             if (!$isTransfer) {
-                $mainData['category_id'] = $request->category_id ?: null;
+                $mainData['category_id'] = $data['category_id'] ?? null;
             }
             $main->update($mainData);
 
@@ -479,7 +465,7 @@ class TransactionController extends Controller
                         'description'         => trim($main->description ?? ''),
                         'group_id'            => $main->group_id,
                         'main_transaction_id' => $main->id,
-                        'created_by'      => auth()->user()->id,
+                        'created_by'          => auth()->id(),
                     ]);
                 } else {
                     $counter->update([

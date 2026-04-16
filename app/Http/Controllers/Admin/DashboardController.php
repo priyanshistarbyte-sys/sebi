@@ -56,7 +56,7 @@ class DashboardController extends Controller
             ->groupBy('category_id')
             ->with('category:id,name')
             ->get()
-            ->map(fn($r) => ['name' => $r->category?->name ?? '—', 'total' => (float)$r->total])
+            ->map(fn($r) => ['id' => $r->category?->id, 'name' => $r->category?->name ?? '—', 'total' => (float)$r->total])
             ->sortByDesc('total')->values();
 
         // Expense by category
@@ -66,7 +66,7 @@ class DashboardController extends Controller
             ->groupBy('category_id')
             ->with('category:id,name')
             ->get()
-            ->map(fn($r) => ['name' => $r->category?->name ?? '—', 'total' => (float)$r->total])
+            ->map(fn($r) => ['id' => $r->category?->id, 'name' => $r->category?->name ?? '—', 'total' => (float)$r->total])
             ->sortByDesc('total')->values();
 
         // Account “amount left” = net change this month per account (Income - Expense)
@@ -311,6 +311,46 @@ class DashboardController extends Controller
             'transactions' => $tx,
             'is_account' => false,
             'currency' => $currency
+        ]);
+    }
+
+    public function gstTransactionsModal(Request $request)
+    {
+        $cid      = session('active_company_id');
+        $currency = optional(Company::find((int)$cid))->currency_symbol ?: '₹';
+        $gstFilter = $request->input('gst_month', 'all');
+
+        $q = Transaction::where('company_id', $cid)->where('transaction_type', 'gst');
+        if ($gstFilter !== 'all') {
+            $q->whereRaw("DATE_FORMAT(date,'%Y-%m') = ?", [$gstFilter]);
+        }
+
+        $transactions = $q->with(['company', 'account', 'category'])->orderByDesc('date')->get();
+
+        return view('admin.dashboard.partials.gst-transactions-modal', [
+            'transactions' => $transactions,
+            'currency'     => $currency,
+            'gstFilter'    => $gstFilter,
+        ]);
+    }
+
+    public function tdsTransactionsModal(Request $request)
+    {
+        $cid      = session('active_company_id');
+        $currency = optional(Company::find((int)$cid))->currency_symbol ?: '₹';
+        $gstFilter = $request->input('gst_month', 'all');
+
+        $q = Transaction::where('company_id', $cid)->where('transaction_type', 'tds');
+        if ($gstFilter !== 'all') {
+            $q->whereRaw("DATE_FORMAT(date,'%Y-%m') = ?", [$gstFilter]);
+        }
+
+        $transactions = $q->with(['company', 'account', 'category'])->orderByDesc('date')->get();
+
+        return view('admin.dashboard.partials.tds-transactions-modal', [
+            'transactions' => $transactions,
+            'currency'     => $currency,
+            'gstFilter'    => $gstFilter,
         ]);
     }
 

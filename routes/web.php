@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('companies', CompanyController::class)->except('show');
     });
 
+   
     Route::middleware('company')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::resource('categories', CategoryController::class)->except('show');
@@ -48,8 +49,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('/dashboard/files/{file}',                    [DashboardFileController::class, 'destroy'])->name('dashboard.files.destroy');
         Route::get('/dashboard/files/{file}/preview',               [DashboardFileController::class, 'preview'])->name('dashboard.files.preview');
         Route::get('/dashboard/category/{category}/transactions/export',  [TransactionExportController::class, 'export'])->name('dashboard.category.transactions.export');
+        Route::get('/dashboard/gst-transactions',                          [TransactionExportController::class, 'gstExport'])->name('dashboard.gst.transactions.export');
+        Route::get('/dashboard/gst-transactions/modal',                    [DashboardController::class, 'gstTransactionsModal'])->name('dashboard.gst.transactions.modal');
+        Route::get('/dashboard/tds-transactions',                          [TransactionExportController::class, 'tdsExport'])->name('dashboard.tds.transactions.export');
+        Route::get('/dashboard/tds-transactions/modal',                    [DashboardController::class, 'tdsTransactionsModal'])->name('dashboard.tds.transactions.modal');
     });
-
     Route::post('/company/switch', function (Request $request) {
         $val = (string) $request->input('company_id', '');
 

@@ -32,7 +32,7 @@
                 <tr class="text-left">
                     <th class="p-2 border">Date</th>
                     <th class="p-2 border">Account</th>
-                    <th class="p-2 border text-end">Amount</th>
+                    <th class="p-2 border">Amount</th>
                     <th class="p-2 border">Description</th>
                 </tr>
             </thead>
@@ -47,7 +47,7 @@
                 <tr class="odd:bg-white even:bg-gray-50">
                     <td class="p-2 border">{{ \Illuminate\Support\Carbon::parse($t->date)->toDateString() }}</td>
                     <td class="p-2 border">{{ $t->account?->name ?? '—' }}</td>
-                    <td class="p-2 border text-end {{ $amtClass }}">{{ format_money($t->amount, $currency) }}</td>
+                    <td class="p-2 border {{ $amtClass }}">{{ format_money($t->amount, $currency) }}</td>
                     <td class="p-2 border">{!! $t->description !!}</td>
                 </tr>
             @empty
@@ -61,3 +61,4 @@
         {{ $transactions->links() }}
     </div>
 </div>
+

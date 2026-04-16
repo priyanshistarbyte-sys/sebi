@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Exports\TransactionsExport;
+use App\Exports\GstTransactionsExport;
+use App\Exports\TdsTransactionsExport;
 use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
@@ -12,6 +14,52 @@ use Carbon\Carbon;
 
 class TransactionExportController extends Controller
 {
+    public function gstExport(Request $request)
+    {
+        $cid       = session('active_company_id');
+        $gstFilter = $request->input('gst_month', 'all');
+        $format    = $request->string('format', 'xlsx');
+
+        $q = Transaction::where('company_id', $cid)->where('transaction_type', 'gst');
+        if ($gstFilter !== 'all') {
+            $q->whereRaw("DATE_FORMAT(date,'%Y-%m') = ?", [$gstFilter]);
+        }
+        $q->orderByDesc('date');
+
+        $label = $gstFilter === 'all' ? 'all' : $gstFilter;
+        $file  = 'gst_transactions_'.$label.'.'.$format;
+
+        $export = new GstTransactionsExport($q);
+
+        return match ($format) {
+            'csv'   => Excel::download($export, $file, \Maatwebsite\Excel\Excel::CSV),
+            default => Excel::download($export, $file),
+        };
+    }
+
+    public function tdsExport(Request $request)
+    {
+        $cid       = session('active_company_id');
+        $gstFilter = $request->input('gst_month', 'all');
+        $format    = $request->string('format', 'xlsx');
+
+        $q = Transaction::where('company_id', $cid)->where('transaction_type', 'tds');
+        if ($gstFilter !== 'all') {
+            $q->whereRaw("DATE_FORMAT(date,'%Y-%m') = ?", [$gstFilter]);
+        }
+        $q->orderByDesc('date');
+
+        $label = $gstFilter === 'all' ? 'all' : $gstFilter;
+        $file  = 'tds_transactions_'.$label.'.'.$format;
+
+        $export = new TdsTransactionsExport($q);
+
+        return match ($format) {
+            'csv'   => Excel::download($export, $file, \Maatwebsite\Excel\Excel::CSV),
+            default => Excel::download($export, $file),
+        };
+    }
+
     public function export(Category $category, Request $request)
     {
         // Build the SAME base query you use for $transactions in the view,
